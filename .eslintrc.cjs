@@ -19,6 +19,8 @@ module.exports = {
     ],
     '@typescript-eslint/switch-exhaustiveness-check': 'error',
     '@typescript-eslint/explicit-function-return-type': 'error',
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
   },
   parserOptions: {
     ecmaVersion: 'latest',
@@ -26,4 +28,4 @@ module.exports = {
     project: ['./tsconfig.json', './tsconfig.node.json'],
     tcconfigRootDir: __dirname,
   },
-};
+}

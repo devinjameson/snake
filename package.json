@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@effect/schema": "^0.36.5",
     "classnames": "^2.3.2",
     "effect": "^2.0.0-next.34",
     "eslint-plugin-react": "^7.33.2",
@@ -30,7 +31,7 @@
     "postcss": "^8.4.30",
     "prettier": "^3.0.3",
     "tailwindcss": "^3.3.3",
-    "typescript": "^5.0.2",
+    "typescript": "^5.2.2",
     "vite": "^4.4.5"
   }
 }
