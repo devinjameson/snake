@@ -20,6 +20,7 @@ module.exports = {
     '@typescript-eslint/switch-exhaustiveness-check': 'error',
     '@typescript-eslint/explicit-function-return-type': 'error',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/consistent-type-definitions': 'off',
     'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
   },
   parserOptions: {
