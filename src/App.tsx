@@ -12,7 +12,7 @@ import {
   foldGameStatus,
   GameEvent,
   GameState,
-  gameStateReducer,
+  determineNextGameState,
   getRandomApplePosition,
   keyToDirection,
   Row,
@@ -21,6 +21,8 @@ import {
 } from './model'
 
 const GAME_INTERVAL_MS = 100
+const MAX_GAME_INTERVAL_MS = 50
+const GAME_INTERVAL_DECREASE_PER_POINT_MS = 2
 const BOARD_SIZE = 40
 
 const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
@@ -39,11 +41,15 @@ const initialApplePosition = getRandomApplePosition(BOARD_SIZE)
 
 const initialDirection: Direction = 'Left'
 
+const initialPoints = 0
+
+const initialGameStatus = 'NotStarted'
+
 const initialGameState: GameState = {
   snakePosition: initialSnakePosition,
   applePosition: initialApplePosition,
-  score: 0,
-  status: 'NotStarted',
+  points: initialPoints,
+  gameStatus: initialGameStatus,
 }
 
 const keyDown$ = Rx.fromEvent<KeyboardEvent>(document, 'keydown')
@@ -66,7 +72,18 @@ const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   Rx.startWith(initialDirection),
 )
 
-const clockTick$ = Rx.interval(GAME_INTERVAL_MS)
+const pointsProxy$ = new Rx.BehaviorSubject<number>(initialPoints)
+
+const clockTick$ = pointsProxy$.pipe(
+  Rx.switchMap((points) =>
+    Rx.interval(
+      Math.max(
+        GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
+        MAX_GAME_INTERVAL_MS,
+      ),
+    ),
+  ),
+)
 
 const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
   clockTick$.pipe(Rx.map(() => ({ kind: 'ClockTick' }) as const)),
@@ -77,24 +94,31 @@ const gameState$: Rx.Observable<GameState> = Rx.merge(gameEvent$).pipe(
   Rx.withLatestFrom(direction$),
   Rx.scan(
     (gameState, [gameEvent, direction]) =>
-      gameStateReducer(BOARD_SIZE, direction, gameEvent, gameState),
+      determineNextGameState(BOARD_SIZE, direction, gameEvent, gameState),
     initialGameState,
   ),
-  Rx.takeWhile(({ status }) => status !== 'Over', true),
+  Rx.takeWhile(({ gameStatus }) => gameStatus !== 'GameOver', true),
   Rx.repeat({ delay: () => spaceBarDown$ }),
   Rx.share(),
 )
 
-// View
+gameState$
+  .pipe(
+    Rx.map(({ points }) => points),
+    Rx.distinctUntilChanged(),
+  )
+  .subscribe((points) => {
+    pointsProxy$.next(points)
+  })
 
 const useGameState = buildUseObservable(gameState$, initialGameState)
 
 const App = (): JSX.Element => {
-  const { score, status } = useGameState()
+  const { points, gameStatus } = useGameState()
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <p className="mb-8 font-mono font-bold text-5xl">{score}</p>
+      <p className="mb-8 font-mono font-bold text-5xl">{points}</p>
 
       <div className="flex items-center justify-center relative bg-white">
         <div className="flex items-center justify-center divide-x divide-white">
@@ -106,7 +130,7 @@ const App = (): JSX.Element => {
         </div>
 
         {E.pipe(
-          status,
+          gameStatus,
           foldGameStatus({
             onNotStarted: () => {
               return (
@@ -132,7 +156,7 @@ const App = (): JSX.Element => {
               )
             },
 
-            onOver: () => {
+            onGameOver: () => {
               return (
                 <Overlay
                   headerText="Game over"

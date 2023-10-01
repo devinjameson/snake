@@ -4,36 +4,36 @@ import * as S from '@effect/schema/Schema'
 export type GameState = {
   snakePosition: SnakePosition
   applePosition: ApplePosition
-  score: number
-  status: GameStatus
+  points: number
+  gameStatus: GameStatus
 }
 
-export type GameStatus = 'NotStarted' | 'Playing' | 'Paused' | 'Over'
+export type GameStatus = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
 
 export const foldGameStatus =
   <T extends unknown>({
     onNotStarted,
     onPlaying,
     onPaused,
-    onOver,
+    onGameOver,
   }: {
     onNotStarted: () => T
     onPlaying: () => T
     onPaused: () => T
-    onOver: () => T
+    onGameOver: () => T
   }) =>
-  (gameStatus: GameStatus): T => {
-    switch (gameStatus) {
-      case 'NotStarted':
-        return onNotStarted()
-      case 'Playing':
-        return onPlaying()
-      case 'Paused':
-        return onPaused()
-      case 'Over':
-        return onOver()
+    (gameStatus: GameStatus): T => {
+      switch (gameStatus) {
+        case 'NotStarted':
+          return onNotStarted()
+        case 'Playing':
+          return onPlaying()
+        case 'Paused':
+          return onPaused()
+        case 'GameOver':
+          return onGameOver()
+      }
     }
-  }
 
 export type SnakePosition = E.Chunk.Chunk<Cell>
 export type ApplePosition = Cell
@@ -43,8 +43,8 @@ export type Row = E.Chunk.Chunk<Cell>
 export type Cell = E.Data.Data<[number, number]>
 
 export type GameEvent = ClockTick | SpaceBarDown
-type ClockTick = { kind: 'ClockTick' }
-type SpaceBarDown = { kind: 'SpaceBarDown' }
+type ClockTick = {kind: 'ClockTick'}
+type SpaceBarDown = {kind: 'SpaceBarDown'}
 
 export type Direction = 'Up' | 'Down' | 'Left' | 'Right'
 export type DirectionKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
@@ -94,67 +94,18 @@ export const getRandomApplePosition = (boardSize: number): ApplePosition => {
 
 const determineNextHead =
   (direction: Direction) =>
-  ([x, y]: Cell): Cell => {
-    switch (direction) {
-      case 'Up':
-        return E.Data.tuple(x, y - 1)
-      case 'Down':
-        return E.Data.tuple(x, y + 1)
-      case 'Left':
-        return E.Data.tuple(x - 1, y)
-      case 'Right':
-        return E.Data.tuple(x + 1, y)
+    ([x, y]: Cell): Cell => {
+      switch (direction) {
+        case 'Up':
+          return E.Data.tuple(x, y - 1)
+        case 'Down':
+          return E.Data.tuple(x, y + 1)
+        case 'Left':
+          return E.Data.tuple(x - 1, y)
+        case 'Right':
+          return E.Data.tuple(x + 1, y)
+      }
     }
-  }
-
-const determineNextGameState = (
-  boardSize: number,
-  direction: Direction,
-  gameState: GameState,
-): GameState => {
-  if (gameState.status !== 'Playing') {
-    return gameState
-  }
-
-  const { snakePosition, applePosition, score } = gameState
-
-  const head = snakePosition.pipe(E.Chunk.head)
-
-  const nextHead = head.pipe(
-    E.Option.map(determineNextHead(direction)),
-    E.Option.getOrThrowWith(() => new Error('Snake has no head')),
-  )
-
-  const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
-
-  const nextApplePosition = isNextHeadOnApple
-    ? getRandomApplePosition(boardSize)
-    : applePosition
-
-  const maybeWithoutTail = isNextHeadOnApple
-    ? snakePosition
-    : snakePosition.pipe(E.Chunk.dropRight(1))
-
-  const nextSnakePosition = maybeWithoutTail.pipe(E.Chunk.prepend(nextHead))
-
-  const nextScore = isNextHeadOnApple ? score + 1 : score
-
-  const isOver = isColliding(boardSize, nextSnakePosition)
-
-  if (isOver) {
-    return {
-      ...gameState,
-      status: 'Over',
-    }
-  } else {
-    return {
-      ...gameState,
-      snakePosition: nextSnakePosition,
-      applePosition: nextApplePosition,
-      score: nextScore,
-    }
-  }
-}
 
 const isCollidingWithSelf = (snake: SnakePosition): boolean => {
   return snake.pipe(
@@ -186,7 +137,7 @@ const isColliding = (boardSize: number, snake: SnakePosition): boolean => {
   return isCollidingWithSelf(snake) || isCollidingWithWall(boardSize, snake)
 }
 
-export const gameStateReducer = (
+export const determineNextGameState = (
   boardSize: number,
   direction: Direction,
   gameEvent: GameEvent,
@@ -194,33 +145,76 @@ export const gameStateReducer = (
 ): GameState => {
   switch (gameEvent.kind) {
     case 'ClockTick': {
-      return determineNextGameState(boardSize, direction, gameState)
+      if (gameState.gameStatus !== 'Playing') {
+        return gameState
+      } else {
+        const {snakePosition, applePosition, points} = gameState
+
+        const head = snakePosition.pipe(E.Chunk.head)
+
+        const nextHead = head.pipe(
+          E.Option.map(determineNextHead(direction)),
+          E.Option.getOrThrowWith(() => new Error('Snake has no head')),
+        )
+
+        const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
+
+        const nextApplePosition = isNextHeadOnApple
+          ? getRandomApplePosition(boardSize)
+          : applePosition
+
+        const maybeWithoutTail = isNextHeadOnApple
+          ? snakePosition
+          : snakePosition.pipe(E.Chunk.dropRight(1))
+
+        const nextSnakePosition = maybeWithoutTail.pipe(
+          E.Chunk.prepend(nextHead),
+        )
+
+        const isOver = isColliding(boardSize, nextSnakePosition)
+
+        if (isOver) {
+          return {
+            ...gameState,
+            gameStatus: 'GameOver',
+          }
+        } else {
+          const nextPoints = isNextHeadOnApple ? points + 1 : points
+
+          return {
+            ...gameState,
+            snakePosition: nextSnakePosition,
+            applePosition: nextApplePosition,
+            points: nextPoints,
+          }
+        }
+      }
     }
 
     case 'SpaceBarDown': {
-      switch (gameState.status) {
+      switch (gameState.gameStatus) {
         case 'NotStarted': {
           return {
             ...gameState,
-            status: 'Playing',
+            gameStatus: 'Playing',
           }
         }
         case 'Playing': {
           return {
             ...gameState,
-            status: 'Paused',
+            gameStatus: 'Paused',
           }
         }
         case 'Paused': {
           return {
             ...gameState,
-            status: 'Playing',
+            gameStatus: 'Playing',
           }
         }
-        case 'Over': {
+        case 'GameOver': {
           return {
             ...gameState,
-            status: 'Playing',
+            gameStatus: 'Playing',
           }
         }
       }
