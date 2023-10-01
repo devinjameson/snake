@@ -4,59 +4,23 @@ import * as Rx from 'rxjs'
 import cn from 'classnames'
 
 import { buildUseObservable } from './buildUseObservable'
+import {
+  Board,
+  Cell,
+  Direction,
+  DirectionKeySchema,
+  foldGameStatus,
+  GameEvent,
+  GameState,
+  gameStateReducer,
+  getRandomApplePosition,
+  keyToDirection,
+  Row,
+  SnakePosition,
+  toOppositeDirection,
+} from './model'
 
-// Model
-
-type GameState = {
-  snakePosition: SnakePosition
-  applePosition: ApplePosition
-  score: number
-  status: Status
-}
-
-type Status = 'NotStarted' | 'Playing' | 'Paused' | 'Over'
-
-const foldStatus =
-  <T extends unknown>({
-    onNotStarted,
-    onPlaying,
-    onPaused,
-    onOver,
-  }: {
-    onNotStarted: () => T
-    onPlaying: () => T
-    onPaused: () => T
-    onOver: () => T
-  }) =>
-  (status: Status): T => {
-    switch (status) {
-      case 'NotStarted':
-        return onNotStarted()
-      case 'Playing':
-        return onPlaying()
-      case 'Paused':
-        return onPaused()
-      case 'Over':
-        return onOver()
-    }
-  }
-
-type SnakePosition = E.Chunk.Chunk<Cell>
-
-type ApplePosition = Cell
-
-type Cell = E.Data.Data<[number, number]>
-
-type Direction = 'Up' | 'Down' | 'Left' | 'Right'
-
-type DirectionKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
-
-type Row = E.Chunk.Chunk<Cell>
-
-type Board = E.Chunk.Chunk<Row>
-
-// Constants
-
+const GAME_INTERVAL_MS = 100
 const BOARD_SIZE = 40
 
 const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
@@ -71,13 +35,7 @@ const initialSnakePosition: SnakePosition = E.Chunk.fromIterable([
   E.Data.tuple(13, 10),
 ])
 
-const getRandomCoordinateComponent = (): number =>
-  Math.floor(Math.random() * BOARD_SIZE)
-
-const getRandomApplePosition = (): ApplePosition =>
-  E.Data.tuple(getRandomCoordinateComponent(), getRandomCoordinateComponent())
-
-const initialApplePosition = getRandomApplePosition()
+const initialApplePosition = getRandomApplePosition(BOARD_SIZE)
 
 const initialDirection: Direction = 'Left'
 
@@ -88,33 +46,12 @@ const initialGameState: GameState = {
   status: 'NotStarted',
 }
 
-const GAME_INTERVAL_MS = 100
-
-// Rx
-
-const DirectionKeySchema: S.Schema<DirectionKey> = S.literal(
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-)
-
-const keyToDirection = (key: DirectionKey): Direction => {
-  switch (key) {
-    case 'ArrowUp':
-      return 'Up'
-    case 'ArrowDown':
-      return 'Down'
-    case 'ArrowLeft':
-      return 'Left'
-    case 'ArrowRight':
-      return 'Right'
-  }
-}
-
 const keyDown$ = Rx.fromEvent<KeyboardEvent>(document, 'keydown')
-const isSpaceKeyboardEvent = ({ key }: KeyboardEvent): boolean => key === ' '
-const spaceBarDown$ = keyDown$.pipe(Rx.filter(isSpaceKeyboardEvent))
+const spaceBarDown$ = keyDown$.pipe(
+  Rx.filter(({ key }) => {
+    return key === ' '
+  }),
+)
 
 const directionKeyPress$ = keyDown$.pipe(
   Rx.map(({ key }) => key),
@@ -129,153 +66,6 @@ const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   Rx.startWith(initialDirection),
 )
 
-const toOppositeDirection = (direction: Direction): Direction => {
-  switch (direction) {
-    case 'Up':
-      return 'Down'
-    case 'Down':
-      return 'Up'
-    case 'Left':
-      return 'Right'
-    case 'Right':
-      return 'Left'
-  }
-}
-
-const determineNextHead =
-  (direction: Direction) =>
-  ([x, y]: Cell): Cell => {
-    switch (direction) {
-      case 'Up':
-        return E.Data.tuple(x, y - 1)
-      case 'Down':
-        return E.Data.tuple(x, y + 1)
-      case 'Left':
-        return E.Data.tuple(x - 1, y)
-      case 'Right':
-        return E.Data.tuple(x + 1, y)
-    }
-  }
-
-const determineNextGameState =
-  (direction: Direction) =>
-  (gameState: GameState): GameState => {
-    if (gameState.status !== 'Playing') {
-      return gameState
-    }
-
-    const { snakePosition, applePosition, score } = gameState
-
-    const head = snakePosition.pipe(E.Chunk.head)
-
-    const nextHead = head.pipe(
-      E.Option.map(determineNextHead(direction)),
-      E.Option.getOrThrowWith(() => new Error('Snake has no head')),
-    )
-
-    const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
-
-    const nextApplePosition = isNextHeadOnApple
-      ? getRandomApplePosition()
-      : applePosition
-
-    const maybeWithoutTail = isNextHeadOnApple
-      ? snakePosition
-      : snakePosition.pipe(E.Chunk.dropRight(1))
-
-    const nextSnakePosition = maybeWithoutTail.pipe(E.Chunk.prepend(nextHead))
-
-    const nextScore = isNextHeadOnApple ? score + 1 : score
-
-    const isOver = isColliding(nextSnakePosition)
-
-    if (isOver) {
-      return {
-        ...gameState,
-        status: 'Over',
-      }
-    } else {
-      return {
-        ...gameState,
-        snakePosition: nextSnakePosition,
-        applePosition: nextApplePosition,
-        score: nextScore,
-      }
-    }
-  }
-
-const isCollidingWithSelf = (snake: SnakePosition): boolean => {
-  return snake.pipe(
-    E.Chunk.head,
-    E.Option.map((head) => {
-      return snake.pipe(E.Chunk.drop(1), E.Chunk.contains(head))
-    }),
-    E.Option.getOrElse(() => false),
-  )
-}
-
-const isCollidingWithWall = (snake: SnakePosition): boolean => {
-  return snake.pipe(
-    E.Chunk.head,
-    E.Option.map(
-      E.flow(
-        E.Chunk.fromIterable,
-        E.Chunk.some<number>((xy) => xy < 0 || xy >= BOARD_SIZE),
-      ),
-    ),
-    E.Option.getOrElse(() => false),
-  )
-}
-
-const isColliding = (snake: SnakePosition): boolean => {
-  return isCollidingWithSelf(snake) || isCollidingWithWall(snake)
-}
-
-const gameStateReducer = (
-  direction: Direction,
-  gameEvent: GameEvent,
-  gameState: GameState,
-): GameState => {
-  switch (gameEvent.kind) {
-    case 'ClockTick': {
-      return determineNextGameState(direction)(gameState)
-    }
-
-    case 'SpaceBarDown': {
-      switch (gameState.status) {
-        case 'NotStarted': {
-          return {
-            ...gameState,
-            status: 'Playing',
-          }
-        }
-        case 'Playing': {
-          return {
-            ...gameState,
-            status: 'Paused',
-          }
-        }
-        case 'Paused': {
-          return {
-            ...gameState,
-            status: 'Playing',
-          }
-        }
-        case 'Over': {
-          return {
-            ...gameState,
-            status: 'Playing',
-          }
-        }
-      }
-    }
-  }
-}
-
-type GameEvent = ClockTick | SpaceBarDown
-type ClockTick = { kind: 'ClockTick' }
-type SpaceBarDown = { kind: 'SpaceBarDown' }
-
 const clockTick$ = Rx.interval(GAME_INTERVAL_MS)
 
 const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
@@ -287,7 +77,7 @@ const gameState$: Rx.Observable<GameState> = Rx.merge(gameEvent$).pipe(
   Rx.withLatestFrom(direction$),
   Rx.scan(
     (gameState, [gameEvent, direction]) =>
-      gameStateReducer(direction, gameEvent, gameState),
+      gameStateReducer(BOARD_SIZE, direction, gameEvent, gameState),
     initialGameState,
   ),
   Rx.takeWhile(({ status }) => status !== 'Over', true),
@@ -317,7 +107,7 @@ const App = (): JSX.Element => {
 
         {E.pipe(
           status,
-          foldStatus({
+          foldGameStatus({
             onNotStarted: () => {
               return (
                 <Overlay
@@ -327,9 +117,11 @@ const App = (): JSX.Element => {
                 />
               )
             },
+
             onPlaying: () => {
               return <></>
             },
+
             onPaused: () => {
               return (
                 <Overlay
@@ -339,6 +131,7 @@ const App = (): JSX.Element => {
                 />
               )
             },
+
             onOver: () => {
               return (
                 <Overlay
@@ -351,30 +144,6 @@ const App = (): JSX.Element => {
           }),
         )}
       </div>
-    </div>
-  )
-}
-
-const Overlay = ({
-  headerText,
-  bodyText,
-  backgroundColor,
-}: {
-  headerText: string
-  bodyText: string
-  backgroundColor: string
-}): JSX.Element => {
-  const className = cn(
-    'absolute inset-0 flex flex-col justify-center items-center opacity-70',
-    backgroundColor,
-  )
-
-  return (
-    <div className={className}>
-      <p className="text-5xl font-semibold text-white font-mono uppercase mb-8">
-        {headerText}
-      </p>
-      <p className="text-2xl font-medium text-white font-mono">{bodyText}</p>
     </div>
   )
 }
@@ -404,6 +173,30 @@ const Cell = ({ cell }: { cell: Cell }): JSX.Element => {
   )
 
   return <div className={className} />
+}
+
+const Overlay = ({
+  headerText,
+  bodyText,
+  backgroundColor,
+}: {
+  headerText: string
+  bodyText: string
+  backgroundColor: string
+}): JSX.Element => {
+  const className = cn(
+    'absolute inset-0 flex flex-col justify-center items-center opacity-70',
+    backgroundColor,
+  )
+
+  return (
+    <div className={className}>
+      <p className="text-5xl font-semibold text-white font-mono uppercase mb-8">
+        {headerText}
+      </p>
+      <p className="text-2xl font-medium text-white font-mono">{bodyText}</p>
+    </div>
+  )
 }
 
 export default App
