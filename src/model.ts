@@ -22,18 +22,18 @@ export const foldGameStatus =
     onPaused: () => T
     onGameOver: () => T
   }) =>
-    (gameStatus: GameStatus): T => {
-      switch (gameStatus) {
-        case 'NotStarted':
-          return onNotStarted()
-        case 'Playing':
-          return onPlaying()
-        case 'Paused':
-          return onPaused()
-        case 'GameOver':
-          return onGameOver()
-      }
+  (gameStatus: GameStatus): T => {
+    switch (gameStatus) {
+      case 'NotStarted':
+        return onNotStarted()
+      case 'Playing':
+        return onPlaying()
+      case 'Paused':
+        return onPaused()
+      case 'GameOver':
+        return onGameOver()
     }
+  }
 
 export type SnakePosition = E.Chunk.Chunk<Cell>
 export type ApplePosition = Cell
@@ -43,8 +43,8 @@ export type Row = E.Chunk.Chunk<Cell>
 export type Cell = E.Data.Data<[number, number]>
 
 export type GameEvent = ClockTick | SpaceBarDown
-type ClockTick = {kind: 'ClockTick'}
-type SpaceBarDown = {kind: 'SpaceBarDown'}
+type ClockTick = { kind: 'ClockTick' }
+type SpaceBarDown = { kind: 'SpaceBarDown' }
 
 export type Direction = 'Up' | 'Down' | 'Left' | 'Right'
 export type DirectionKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
@@ -94,18 +94,18 @@ export const getRandomApplePosition = (boardSize: number): ApplePosition => {
 
 const determineNextHead =
   (direction: Direction) =>
-    ([x, y]: Cell): Cell => {
-      switch (direction) {
-        case 'Up':
-          return E.Data.tuple(x, y - 1)
-        case 'Down':
-          return E.Data.tuple(x, y + 1)
-        case 'Left':
-          return E.Data.tuple(x - 1, y)
-        case 'Right':
-          return E.Data.tuple(x + 1, y)
-      }
+  ([x, y]: Cell): Cell => {
+    switch (direction) {
+      case 'Up':
+        return E.Data.tuple(x, y - 1)
+      case 'Down':
+        return E.Data.tuple(x, y + 1)
+      case 'Left':
+        return E.Data.tuple(x - 1, y)
+      case 'Right':
+        return E.Data.tuple(x + 1, y)
     }
+  }
 
 const isCollidingWithSelf = (snake: SnakePosition): boolean => {
   return snake.pipe(
@@ -148,7 +148,7 @@ export const determineNextGameState = (
       if (gameState.gameStatus !== 'Playing') {
         return gameState
       } else {
-        const {snakePosition, applePosition, points} = gameState
+        const { snakePosition, applePosition, points } = gameState
 
         const head = snakePosition.pipe(E.Chunk.head)
 

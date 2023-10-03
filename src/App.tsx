@@ -66,10 +66,10 @@ const directionKeyPress$ = keyDown$.pipe(
 
 const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   Rx.map(keyToDirection),
+  Rx.startWith(initialDirection),
   Rx.scan((acc, curr) => {
     return toOppositeDirection(curr) === acc ? acc : curr
   }),
-  Rx.startWith(initialDirection),
 )
 
 const pointsProxy$ = new Rx.BehaviorSubject<number>(initialPoints)
