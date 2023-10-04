@@ -21,7 +21,7 @@ import {
 } from './model'
 
 const GAME_INTERVAL_MS = 100
-const MAX_GAME_INTERVAL_MS = 50
+const MIN_GAME_INTERVAL_MS = 50
 const GAME_INTERVAL_DECREASE_PER_POINT_MS = 2
 const BOARD_SIZE = 40
 
@@ -64,7 +64,12 @@ const directionKeyPress$ = keyDown$.pipe(
   Rx.filter(DirectionKeySchema.pipe(S.is)),
 )
 
+const gameStateProxy$ = new Rx.Subject<GameState>()
+
 const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
+  Rx.withLatestFrom(gameStateProxy$),
+  Rx.filter(([_, { gameStatus }]) => gameStatus === 'Playing'),
+  Rx.map(([key]) => key),
   Rx.map(keyToDirection),
   Rx.startWith(initialDirection),
   Rx.scan((acc, curr) => {
@@ -72,17 +77,19 @@ const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   }),
 )
 
-const pointsProxy$ = new Rx.BehaviorSubject<number>(initialPoints)
-
-const clockTick$ = pointsProxy$.pipe(
-  Rx.switchMap((points) =>
-    Rx.interval(
-      Math.max(
-        GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
-        MAX_GAME_INTERVAL_MS,
-      ),
-    ),
-  ),
+const clockTick$ = gameStateProxy$.pipe(
+  Rx.switchMap(({ points, gameStatus }) => {
+    if (gameStatus !== 'Playing') {
+      return Rx.NEVER
+    } else {
+      return Rx.interval(
+        Math.max(
+          GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
+          MIN_GAME_INTERVAL_MS,
+        ),
+      )
+    }
+  }),
 )
 
 const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
@@ -97,19 +104,16 @@ const gameState$: Rx.Observable<GameState> = Rx.merge(gameEvent$).pipe(
       determineNextGameState(BOARD_SIZE, direction, gameEvent, gameState),
     initialGameState,
   ),
+  Rx.startWith(initialGameState),
   Rx.takeWhile(({ gameStatus }) => gameStatus !== 'GameOver', true),
   Rx.repeat({ delay: () => spaceBarDown$ }),
   Rx.share(),
+  Rx.observeOn(Rx.animationFrameScheduler),
 )
 
-gameState$
-  .pipe(
-    Rx.map(({ points }) => points),
-    Rx.distinctUntilChanged(),
-  )
-  .subscribe((points) => {
-    pointsProxy$.next(points)
-  })
+gameState$.subscribe((gameState) => {
+  gameStateProxy$.next(gameState)
+})
 
 const useGameState = buildUseObservable(gameState$, initialGameState)
 
@@ -160,7 +164,7 @@ const App = (): JSX.Element => {
               return (
                 <Overlay
                   headerText="Game over"
-                  bodyText="Press space to try again"
+                  bodyText="Press space to start over"
                   backgroundColor="bg-red-600"
                 />
               )

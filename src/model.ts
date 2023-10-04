@@ -145,48 +145,42 @@ export const determineNextGameState = (
 ): GameState => {
   switch (gameEvent.kind) {
     case 'ClockTick': {
-      if (gameState.gameStatus !== 'Playing') {
-        return gameState
+      const { snakePosition, applePosition, points } = gameState
+
+      const head = snakePosition.pipe(E.Chunk.head)
+
+      const nextHead = head.pipe(
+        E.Option.map(determineNextHead(direction)),
+        E.Option.getOrThrowWith(() => new Error('Snake has no head')),
+      )
+
+      const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
+
+      const nextApplePosition = isNextHeadOnApple
+        ? getRandomApplePosition(boardSize)
+        : applePosition
+
+      const maybeWithoutTail = isNextHeadOnApple
+        ? snakePosition
+        : snakePosition.pipe(E.Chunk.dropRight(1))
+
+      const nextSnakePosition = maybeWithoutTail.pipe(E.Chunk.prepend(nextHead))
+
+      const isOver = isColliding(boardSize, nextSnakePosition)
+
+      if (isOver) {
+        return {
+          ...gameState,
+          gameStatus: 'GameOver',
+        }
       } else {
-        const { snakePosition, applePosition, points } = gameState
+        const nextPoints = isNextHeadOnApple ? points + 1 : points
 
-        const head = snakePosition.pipe(E.Chunk.head)
-
-        const nextHead = head.pipe(
-          E.Option.map(determineNextHead(direction)),
-          E.Option.getOrThrowWith(() => new Error('Snake has no head')),
-        )
-
-        const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
-
-        const nextApplePosition = isNextHeadOnApple
-          ? getRandomApplePosition(boardSize)
-          : applePosition
-
-        const maybeWithoutTail = isNextHeadOnApple
-          ? snakePosition
-          : snakePosition.pipe(E.Chunk.dropRight(1))
-
-        const nextSnakePosition = maybeWithoutTail.pipe(
-          E.Chunk.prepend(nextHead),
-        )
-
-        const isOver = isColliding(boardSize, nextSnakePosition)
-
-        if (isOver) {
-          return {
-            ...gameState,
-            gameStatus: 'GameOver',
-          }
-        } else {
-          const nextPoints = isNextHeadOnApple ? points + 1 : points
-
-          return {
-            ...gameState,
-            snakePosition: nextSnakePosition,
-            applePosition: nextApplePosition,
-            points: nextPoints,
-          }
+        return {
+          ...gameState,
+          snakePosition: nextSnakePosition,
+          applePosition: nextApplePosition,
+          points: nextPoints,
         }
       }
     }
