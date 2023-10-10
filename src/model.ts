@@ -1,16 +1,16 @@
 import * as E from 'effect'
 import * as S from '@effect/schema/Schema'
 
-export type GameState = {
+export type World = {
   snakePosition: SnakePosition
   applePosition: ApplePosition
   points: number
-  gameStatus: GameStatus
+  gameState: GameState
 }
 
-export type GameStatus = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
+export type GameState = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
 
-export const foldGameStatus =
+export const matchGameState =
   <T extends unknown>({
     onNotStarted,
     onPlaying,
@@ -22,8 +22,8 @@ export const foldGameStatus =
     onPaused: () => T
     onGameOver: () => T
   }) =>
-  (gameStatus: GameStatus): T => {
-    switch (gameStatus) {
+  (gameState: GameState): T => {
+    switch (gameState) {
       case 'NotStarted':
         return onNotStarted()
       case 'Playing':
@@ -108,12 +108,14 @@ const determineNextHead =
   }
 
 const isCollidingWithSelf = (snake: SnakePosition): boolean => {
-  return snake.pipe(
-    E.Chunk.head,
-    E.Option.map((head) => {
-      return snake.pipe(E.Chunk.drop(1), E.Chunk.contains(head))
+  return E.pipe(
+    E.Option.Do,
+    E.Option.bind('head', () => snake.pipe(E.Chunk.head)),
+    E.Option.bind('tail', () => snake.pipe(E.Chunk.tail)),
+    E.Option.map(({ head, tail }) => {
+      return tail.pipe(E.Chunk.contains(head))
     }),
-    E.Option.getOrElse(() => false),
+    E.Option.getOrThrowWith(() => new Error('Snake has no head or no tail!')),
   )
 }
 
@@ -137,15 +139,15 @@ const isColliding = (boardSize: number, snake: SnakePosition): boolean => {
   return isCollidingWithSelf(snake) || isCollidingWithWall(boardSize, snake)
 }
 
-export const determineNextGameState = (
+export const determineNextWorld = (
   boardSize: number,
   direction: Direction,
   gameEvent: GameEvent,
-  gameState: GameState,
-): GameState => {
+  world: World,
+): World => {
   switch (gameEvent.kind) {
     case 'ClockTick': {
-      const { snakePosition, applePosition, points } = gameState
+      const { snakePosition, applePosition, points } = world
 
       const head = snakePosition.pipe(E.Chunk.head)
 
@@ -170,14 +172,14 @@ export const determineNextGameState = (
 
       if (isOver) {
         return {
-          ...gameState,
-          gameStatus: 'GameOver',
+          ...world,
+          gameState: 'GameOver',
         }
       } else {
         const nextPoints = isNextHeadOnApple ? points + 1 : points
 
         return {
-          ...gameState,
+          ...world,
           snakePosition: nextSnakePosition,
           applePosition: nextApplePosition,
           points: nextPoints,
@@ -186,29 +188,29 @@ export const determineNextGameState = (
     }
 
     case 'SpaceBarDown': {
-      switch (gameState.gameStatus) {
+      switch (world.gameState) {
         case 'NotStarted': {
           return {
-            ...gameState,
-            gameStatus: 'Playing',
+            ...world,
+            gameState: 'Playing',
           }
         }
         case 'Playing': {
           return {
-            ...gameState,
-            gameStatus: 'Paused',
+            ...world,
+            gameState: 'Paused',
           }
         }
         case 'Paused': {
           return {
-            ...gameState,
-            gameStatus: 'Playing',
+            ...world,
+            gameState: 'Playing',
           }
         }
         case 'GameOver': {
           return {
-            ...gameState,
-            gameStatus: 'Playing',
+            ...world,
+            gameState: 'Playing',
           }
         }
       }

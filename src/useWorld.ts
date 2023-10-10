@@ -2,13 +2,13 @@ import * as E from 'effect'
 import * as S from '@effect/schema/Schema'
 import * as Rx from 'rxjs'
 
-import { buildUseObservable } from './buildUseObservable'
+import { buildUseLastEmittedValue } from './buildUseLastEmittedValue'
 import {
   Direction,
   DirectionKeySchema,
   GameEvent,
-  GameState,
-  determineNextGameState,
+  World,
+  determineNextWorld,
   getRandomApplePosition,
   keyToDirection,
   SnakePosition,
@@ -35,13 +35,13 @@ const initialDirection: Direction = 'Left'
 
 const initialPoints = 0
 
-const initialGameStatus = 'NotStarted'
+const initialGameState = 'NotStarted'
 
-const initialGameState: GameState = {
+const initialWorld: World = {
   snakePosition: initialSnakePosition,
   applePosition: initialApplePosition,
   points: initialPoints,
-  gameStatus: initialGameStatus,
+  gameState: initialGameState,
 }
 
 const keyDown$ = Rx.fromEvent<KeyboardEvent>(document, 'keydown')
@@ -56,11 +56,11 @@ const directionKeyPress$ = keyDown$.pipe(
   Rx.filter(DirectionKeySchema.pipe(S.is)),
 )
 
-const gameStateSubject$ = new Rx.Subject<GameState>()
+const world$ = new Rx.Subject<World>()
 
 const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
-  Rx.withLatestFrom(gameStateSubject$),
-  Rx.filter(([_, { gameStatus }]) => gameStatus === 'Playing'),
+  Rx.withLatestFrom(world$),
+  Rx.filter(([_, { gameState }]) => gameState === 'Playing'),
   Rx.map(([key]) => key),
   Rx.map(keyToDirection),
   Rx.startWith(initialDirection),
@@ -69,9 +69,9 @@ const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   }),
 )
 
-const clockTick$ = gameStateSubject$.pipe(
-  Rx.switchMap(({ points, gameStatus }) => {
-    if (gameStatus !== 'Playing') {
+const clockTick$ = world$.pipe(
+  Rx.switchMap(({ points, gameState }) => {
+    if (gameState !== 'Playing') {
       return Rx.NEVER
     } else {
       const gameIntervalMs = Math.max(
@@ -88,24 +88,21 @@ const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
   spaceBarDown$.pipe(Rx.map(() => ({ kind: 'SpaceBarDown' }) as const)),
 )
 
-const gameState$: Rx.Observable<GameState> = gameEvent$.pipe(
-  Rx.withLatestFrom(direction$),
-  Rx.scan(
-    (gameState, [gameEvent, direction]) =>
-      determineNextGameState(BOARD_SIZE, direction, gameEvent, gameState),
-    initialGameState,
-  ),
-  Rx.startWith(initialGameState),
-  Rx.takeWhile(({ gameStatus }) => gameStatus !== 'GameOver', true),
-  Rx.repeat({ delay: () => spaceBarDown$ }),
-  Rx.observeOn(Rx.animationFrameScheduler),
-)
+gameEvent$
+  .pipe(
+    Rx.withLatestFrom(direction$),
+    Rx.scan(
+      (world, [gameEvent, direction]) =>
+        determineNextWorld(BOARD_SIZE, direction, gameEvent, world),
+      initialWorld,
+    ),
+    Rx.startWith(initialWorld),
+    Rx.takeWhile(({ gameState }) => gameState !== 'GameOver', true),
+    Rx.repeat({ delay: () => spaceBarDown$ }),
+    Rx.observeOn(Rx.animationFrameScheduler),
+  )
+  .subscribe((world) => {
+    world$.next(world)
+  })
 
-gameState$.subscribe((gameState) => {
-  gameStateSubject$.next(gameState)
-})
-
-export const useGameState = buildUseObservable(
-  gameStateSubject$,
-  initialGameState,
-)
+export const useWorld = buildUseLastEmittedValue(world$, initialWorld)

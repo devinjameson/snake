@@ -1,8 +1,8 @@
 import * as E from 'effect'
 import cn from 'classnames'
 
-import { Board, Cell, foldGameStatus, Row } from './model'
-import { useGameState } from './useGameState'
+import { Board, Cell, matchGameState, Row } from './model'
+import { useWorld } from './useWorld'
 import { BOARD_SIZE } from './constants'
 
 const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
@@ -10,7 +10,7 @@ const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
 )
 
 const App = (): JSX.Element => {
-  const { points, gameStatus } = useGameState()
+  const { points, gameState } = useWorld()
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
@@ -26,8 +26,8 @@ const App = (): JSX.Element => {
         </div>
 
         {E.pipe(
-          gameStatus,
-          foldGameStatus({
+          gameState,
+          matchGameState({
             onNotStarted: () => {
               return (
                 <Overlay
@@ -82,7 +82,7 @@ const Row = ({ row, rowIdx }: { row: Row; rowIdx: number }): JSX.Element => {
 }
 
 const Cell = ({ cell }: { cell: Cell }): JSX.Element => {
-  const { snakePosition, applePosition } = useGameState()
+  const { snakePosition, applePosition } = useWorld()
 
   const isSnakeCell = snakePosition.pipe(E.Chunk.contains(cell))
   const isAppleCell = E.Equal.equals(cell)(applePosition)
