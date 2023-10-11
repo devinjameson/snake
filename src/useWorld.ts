@@ -13,6 +13,8 @@ import {
   keyToDirection,
   SnakePosition,
   toOppositeDirection,
+  GameState,
+  Cell,
 } from './model'
 import {
   BOARD_SIZE,
@@ -29,13 +31,10 @@ const initialSnakePosition: SnakePosition = E.Chunk.fromIterable([
   E.Data.tuple(13, 10),
 ])
 
-const initialApplePosition = getRandomApplePosition(BOARD_SIZE)
-
+const initialApplePosition: Cell = getRandomApplePosition(BOARD_SIZE)
 const initialDirection: Direction = 'Left'
-
 const initialPoints = 0
-
-const initialGameState = 'NotStarted'
+const initialGameState: GameState = 'NotStarted'
 
 const initialWorld: World = {
   snakePosition: initialSnakePosition,

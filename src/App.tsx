@@ -74,6 +74,7 @@ const Row = ({ row, rowIdx }: { row: Row; rowIdx: number }): JSX.Element => {
       {row.pipe(
         E.Chunk.map((_, colIdx) => {
           const cell = E.Data.tuple(rowIdx, colIdx)
+
           return <Cell cell={cell} key={colIdx} />
         }),
       )}

@@ -10,30 +10,7 @@ export type World = {
 
 export type GameState = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
 
-export const matchGameState =
-  <T extends unknown>({
-    onNotStarted,
-    onPlaying,
-    onPaused,
-    onGameOver,
-  }: {
-    onNotStarted: () => T
-    onPlaying: () => T
-    onPaused: () => T
-    onGameOver: () => T
-  }) =>
-  (gameState: GameState): T => {
-    switch (gameState) {
-      case 'NotStarted':
-        return onNotStarted()
-      case 'Playing':
-        return onPlaying()
-      case 'Paused':
-        return onPaused()
-      case 'GameOver':
-        return onGameOver()
-    }
-  }
+type GameError = 'SnakeMissingHead' | 'SnakeMissingTail'
 
 export type SnakePosition = E.Chunk.Chunk<Cell>
 export type ApplePosition = Cell
@@ -107,15 +84,13 @@ const determineNextHead =
     }
   }
 
-type GameError = 'SnakeMissingHead' | 'SnakeMissingTail'
-
 const snakePositionHeadEffect = (
   snakePosition: SnakePosition,
 ): E.Effect.Effect<never, 'SnakeMissingHead', Cell> =>
   snakePosition.pipe(
     E.Chunk.head,
     E.Option.match({
-      onNone: () => E.Effect.fail('SnakeMissingHead' as const),
+      onNone: () => E.Effect.fail('SnakeMissingHead'),
       onSome: E.Effect.succeed,
     }),
   )
@@ -126,7 +101,7 @@ const snakePositionTailEffect = (
   snakePosition.pipe(
     E.Chunk.tail,
     E.Option.match({
-      onNone: () => E.Effect.fail('SnakeMissingTail' as const),
+      onNone: () => E.Effect.fail('SnakeMissingTail'),
       onSome: E.Effect.succeed,
     }),
   )
@@ -147,13 +122,14 @@ const isCollidingWithWallEffect = (
 ): E.Effect.Effect<never, 'SnakeMissingHead', boolean> =>
   E.Effect.gen(function* (_) {
     const head = yield* _(snakePositionHeadEffect(snake))
-
-    return E.pipe(
-      head,
-      E.Chunk.fromIterable,
-      E.Chunk.some<number>((xy) => xy < 0 || xy >= boardSize),
-    )
+    return !isInBoard(boardSize)(head)
   })
+
+const isInBoard =
+  (boardSize: number) =>
+  ([x, y]: Cell): boolean => {
+    return x >= 0 && x < boardSize && y >= 0 && y < boardSize
+  }
 
 const isCollidingEffect = (
   boardSize: number,
@@ -250,3 +226,28 @@ export const determineNextWorld = (
       }
     }
   })
+
+export const matchGameState =
+  <T extends unknown>({
+    onNotStarted,
+    onPlaying,
+    onPaused,
+    onGameOver,
+  }: {
+    onNotStarted: () => T
+    onPlaying: () => T
+    onPaused: () => T
+    onGameOver: () => T
+  }) =>
+  (gameState: GameState): T => {
+    switch (gameState) {
+      case 'NotStarted':
+        return onNotStarted()
+      case 'Playing':
+        return onPlaying()
+      case 'Paused':
+        return onPaused()
+      case 'GameOver':
+        return onGameOver()
+    }
+  }
