@@ -93,7 +93,9 @@ gameEvent$
     Rx.withLatestFrom(direction$),
     Rx.scan(
       (world, [gameEvent, direction]) =>
-        determineNextWorld(BOARD_SIZE, direction, gameEvent, world),
+        E.Effect.runSyncExit(
+          determineNextWorld(BOARD_SIZE, direction, gameEvent, world),
+        ).pipe(E.Exit.getOrElse(() => world)),
       initialWorld,
     ),
     Rx.startWith(initialWorld),

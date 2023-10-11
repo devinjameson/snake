@@ -107,113 +107,146 @@ const determineNextHead =
     }
   }
 
-const isCollidingWithSelf = (snake: SnakePosition): boolean => {
-  return E.pipe(
-    E.Option.Do,
-    E.Option.bind('head', () => snake.pipe(E.Chunk.head)),
-    E.Option.bind('tail', () => snake.pipe(E.Chunk.tail)),
-    E.Option.map(({ head, tail }) => {
-      return tail.pipe(E.Chunk.contains(head))
-    }),
-    E.Option.getOrThrowWith(() => new Error('Snake has no head or no tail!')),
-  )
-}
+type GameError = 'SnakeMissingHead' | 'SnakeMissingTail'
 
-const isCollidingWithWall = (
+const snakePositionHeadEffect = (
+  snakePosition: SnakePosition,
+): E.Effect.Effect<never, 'SnakeMissingHead', Cell> =>
+  snakePosition.pipe(
+    E.Chunk.head,
+    E.Option.match({
+      onNone: () => E.Effect.fail('SnakeMissingHead' as const),
+      onSome: E.Effect.succeed,
+    }),
+  )
+
+const snakePositionTailEffect = (
+  snakePosition: SnakePosition,
+): E.Effect.Effect<never, 'SnakeMissingTail', E.Chunk.Chunk<Cell>> =>
+  snakePosition.pipe(
+    E.Chunk.tail,
+    E.Option.match({
+      onNone: () => E.Effect.fail('SnakeMissingTail' as const),
+      onSome: E.Effect.succeed,
+    }),
+  )
+
+const isCollidingWithSelfEffect = (
+  snakePosition: SnakePosition,
+): E.Effect.Effect<never, GameError, boolean> =>
+  E.Effect.gen(function* (_) {
+    const head = yield* _(snakePositionHeadEffect(snakePosition))
+    const tail = yield* _(snakePositionTailEffect(snakePosition))
+
+    return tail.pipe(E.Chunk.contains(head))
+  })
+
+const isCollidingWithWallEffect = (
   boardSize: number,
   snake: SnakePosition,
-): boolean => {
-  return snake.pipe(
-    E.Chunk.head,
-    E.Option.map(
-      E.flow(
-        E.Chunk.fromIterable,
-        E.Chunk.some<number>((xy) => xy < 0 || xy >= boardSize),
-      ),
-    ),
-    E.Option.getOrElse(() => false),
-  )
-}
+): E.Effect.Effect<never, 'SnakeMissingHead', boolean> =>
+  E.Effect.gen(function* (_) {
+    const head = yield* _(snakePositionHeadEffect(snake))
 
-const isColliding = (boardSize: number, snake: SnakePosition): boolean => {
-  return isCollidingWithSelf(snake) || isCollidingWithWall(boardSize, snake)
-}
+    return E.pipe(
+      head,
+      E.Chunk.fromIterable,
+      E.Chunk.some<number>((xy) => xy < 0 || xy >= boardSize),
+    )
+  })
+
+const isCollidingEffect = (
+  boardSize: number,
+  snakePosition: SnakePosition,
+): E.Effect.Effect<never, GameError, boolean> =>
+  E.Effect.gen(function* (_) {
+    const isCollidingWithSelf = yield* _(
+      isCollidingWithSelfEffect(snakePosition),
+    )
+    const isCollidingWithWall = yield* _(
+      isCollidingWithWallEffect(boardSize, snakePosition),
+    )
+
+    return isCollidingWithSelf || isCollidingWithWall
+  })
 
 export const determineNextWorld = (
   boardSize: number,
   direction: Direction,
   gameEvent: GameEvent,
   world: World,
-): World => {
-  switch (gameEvent.kind) {
-    case 'ClockTick': {
-      const { snakePosition, applePosition, points } = world
+): E.Effect.Effect<never, GameError, World> =>
+  E.Effect.gen(function* (_) {
+    switch (gameEvent.kind) {
+      case 'ClockTick': {
+        const { snakePosition, applePosition, points } = world
 
-      const head = snakePosition.pipe(E.Chunk.head)
+        const head = yield* _(snakePositionHeadEffect(snakePosition))
 
-      const nextHead = head.pipe(
-        E.Option.map(determineNextHead(direction)),
-        E.Option.getOrThrowWith(() => new Error('Snake has no head')),
-      )
+        const nextHead = determineNextHead(direction)(head)
 
-      const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
+        const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
 
-      const nextApplePosition = isNextHeadOnApple
-        ? getRandomApplePosition(boardSize)
-        : applePosition
+        const nextApplePosition = isNextHeadOnApple
+          ? getRandomApplePosition(boardSize)
+          : applePosition
 
-      const maybeWithoutTail = isNextHeadOnApple
-        ? snakePosition
-        : snakePosition.pipe(E.Chunk.dropRight(1))
+        const maybeWithoutTail = isNextHeadOnApple
+          ? snakePosition
+          : snakePosition.pipe(E.Chunk.dropRight(1))
 
-      const nextSnakePosition = maybeWithoutTail.pipe(E.Chunk.prepend(nextHead))
+        const nextSnakePosition = maybeWithoutTail.pipe(
+          E.Chunk.prepend(nextHead),
+        )
 
-      const isOver = isColliding(boardSize, nextSnakePosition)
+        const isGameOver = yield* _(
+          isCollidingEffect(boardSize, nextSnakePosition),
+        )
 
-      if (isOver) {
-        return {
-          ...world,
-          gameState: 'GameOver',
-        }
-      } else {
-        const nextPoints = isNextHeadOnApple ? points + 1 : points
-
-        return {
-          ...world,
-          snakePosition: nextSnakePosition,
-          applePosition: nextApplePosition,
-          points: nextPoints,
-        }
-      }
-    }
-
-    case 'SpaceBarDown': {
-      switch (world.gameState) {
-        case 'NotStarted': {
+        if (isGameOver) {
           return {
             ...world,
-            gameState: 'Playing',
+            gameState: 'GameOver',
           }
-        }
-        case 'Playing': {
+        } else {
+          const nextPoints = isNextHeadOnApple ? points + 1 : points
+
           return {
             ...world,
-            gameState: 'Paused',
-          }
-        }
-        case 'Paused': {
-          return {
-            ...world,
-            gameState: 'Playing',
-          }
-        }
-        case 'GameOver': {
-          return {
-            ...world,
-            gameState: 'Playing',
+            snakePosition: nextSnakePosition,
+            applePosition: nextApplePosition,
+            points: nextPoints,
           }
         }
       }
+
+      case 'SpaceBarDown': {
+        switch (world.gameState) {
+          case 'NotStarted': {
+            return {
+              ...world,
+              gameState: 'Playing',
+            }
+          }
+          case 'Playing': {
+            return {
+              ...world,
+              gameState: 'Paused',
+            }
+          }
+          case 'Paused': {
+            return {
+              ...world,
+              gameState: 'Playing',
+            }
+          }
+          case 'GameOver': {
+            return {
+              ...world,
+              gameState: 'Playing',
+            }
+          }
+        }
+      }
     }
-  }
-}
+  })
