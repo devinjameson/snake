@@ -1,6 +1,10 @@
 import * as E from 'effect'
 import * as S from '@effect/schema/Schema'
 
+// --
+// Model is all types and pure functions
+// --
+
 // -- WORLD
 
 export type World = {
@@ -100,7 +104,7 @@ const isCollidingTask = (boardSize: number, snakePosition: SnakePosition) =>
     return isCollidingWithSelf || isCollidingWithWall
   })
 
-// These errors are contrived, but are useful for demonstration
+// These errors are contrived, but useful for demonstration
 
 class ChunkMissingHeadError {
   readonly _tag = 'ChunkMissingHeadError'

@@ -52,7 +52,25 @@ const initialWorld: World = {
 
 const world$ = new Rx.Subject<World>()
 
-// -- KEYBOARD EVENTS + DIRECTION
+// -- CLOCK
+
+const clockTick$ = world$.pipe(
+  Rx.switchMap(({ points, gameState }) => {
+    if (gameState !== 'Playing') {
+      // Pause the clock when the game is not in the 'Playing' state
+      return Rx.NEVER
+    } else {
+      // Decrease the interval between clock ticks as the score increases
+      const gameIntervalMs = Math.max(
+        GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
+        MIN_GAME_INTERVAL_MS,
+      )
+      return Rx.interval(gameIntervalMs)
+    }
+  }),
+)
+
+// -- DIRECTION
 
 const keyDown$ = Rx.fromEvent<KeyboardEvent>(document, 'keydown')
 const spaceBarDown$ = keyDown$.pipe(
@@ -79,24 +97,6 @@ const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   }),
 )
 
-// -- CLOCK
-
-const clockTick$ = world$.pipe(
-  Rx.switchMap(({ points, gameState }) => {
-    if (gameState !== 'Playing') {
-      // Pause the clock when the game is not in the 'Playing' state
-      return Rx.NEVER
-    } else {
-      // Decrease the interval between clock ticks as the score increases
-      const gameIntervalMs = Math.max(
-        GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
-        MIN_GAME_INTERVAL_MS,
-      )
-      return Rx.interval(gameIntervalMs)
-    }
-  }),
-)
-
 // -- GAME EVENTS
 
 // Merge all game events into a single stream
@@ -106,19 +106,17 @@ const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
   spaceBarDown$.pipe(Rx.map(() => ({ kind: 'SpaceBarDown' }) as const)),
 )
 
-// Handle game events and update the world
+// Transform game events to world values and push them into world$
 
 gameEvent$
   .pipe(
     Rx.withLatestFrom(direction$),
     // Scan is like reduce, but it emits the intermediate values
-    Rx.scan(
-      (world, [gameEvent, direction]) =>
-        E.Effect.runSyncExit(
-          determineNextWorldProgram(BOARD_SIZE, direction, gameEvent, world),
-        ).pipe(E.Exit.getOrElse(() => world)),
-      initialWorld,
-    ),
+    Rx.scan((world, [gameEvent, direction]) => {
+      return E.Effect.runSync(
+        determineNextWorldProgram(BOARD_SIZE, direction, gameEvent, world),
+      )
+    }, initialWorld),
     Rx.startWith(initialWorld),
     // Complete with gameState is 'GameOver'
     Rx.takeWhile(({ gameState }) => gameState !== 'GameOver', true),
