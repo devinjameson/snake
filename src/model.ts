@@ -194,24 +194,14 @@ export const determineNextWorldProgram = (
 
       case 'SpaceBarDown': {
         switch (world.gameState) {
-          case 'NotStarted': {
-            return {
-              ...world,
-              gameState: 'Playing' as const,
-            }
-          }
           case 'Playing': {
             return {
               ...world,
               gameState: 'Paused' as const,
             }
           }
-          case 'Paused': {
-            return {
-              ...world,
-              gameState: 'Playing' as const,
-            }
-          }
+          case 'NotStarted':
+          case 'Paused':
           case 'GameOver': {
             return {
               ...world,

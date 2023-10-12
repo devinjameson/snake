@@ -86,20 +86,20 @@ const directionKeyPress$ = keyDown$.pipe(
 
 const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   Rx.withLatestFrom(world$),
-  // The user can only change direction when the game is in the 'Playing' state
+  // User can only change direction when gameState is 'Playing'
   Rx.filter(([_, { gameState }]) => gameState === 'Playing'),
   Rx.map(([key]) => key),
   Rx.map(keyToDirection),
-  Rx.startWith(initialDirection),
-  // Don't allow the user to change direction to the opposite direction
+  // Don't allow the user to change to the opposite direction
   Rx.scan((acc, curr) => {
     return toOppositeDirection(curr) === acc ? acc : curr
   }),
+  Rx.startWith(initialDirection),
 )
 
 // -- GAME EVENTS
 
-// Merge all game events into a single stream
+// Merge game events into a single stream
 
 const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
   clockTick$.pipe(Rx.map(() => ({ kind: 'ClockTick' }) as const)),
