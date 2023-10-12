@@ -8,7 +8,7 @@ import {
   DirectionKeySchema,
   GameEvent,
   World,
-  determineNextWorld,
+  determineNextWorldProgram,
   getRandomApplePosition,
   keyToDirection,
   SnakePosition,
@@ -22,6 +22,8 @@ import {
   GAME_INTERVAL_MS,
   MIN_GAME_INTERVAL_MS,
 } from './constants'
+
+// -- INITIAL WORLD
 
 const initialSnakePosition: SnakePosition = E.Chunk.fromIterable([
   E.Data.tuple(9, 10),
@@ -43,6 +45,15 @@ const initialWorld: World = {
   gameState: initialGameState,
 }
 
+// -- WORLD SUBJECT
+
+// We will push world values into this subject, as well as use it to define
+// other observables
+
+const world$ = new Rx.Subject<World>()
+
+// -- KEYBOARD EVENTS + DIRECTION
+
 const keyDown$ = Rx.fromEvent<KeyboardEvent>(document, 'keydown')
 const spaceBarDown$ = keyDown$.pipe(
   Rx.filter(({ key }) => {
@@ -55,24 +66,28 @@ const directionKeyPress$ = keyDown$.pipe(
   Rx.filter(DirectionKeySchema.pipe(S.is)),
 )
 
-const world$ = new Rx.Subject<World>()
-
 const direction$: Rx.Observable<Direction> = directionKeyPress$.pipe(
   Rx.withLatestFrom(world$),
+  // The user can only change direction when the game is in the 'Playing' state
   Rx.filter(([_, { gameState }]) => gameState === 'Playing'),
   Rx.map(([key]) => key),
   Rx.map(keyToDirection),
   Rx.startWith(initialDirection),
+  // Don't allow the user to change direction to the opposite direction
   Rx.scan((acc, curr) => {
     return toOppositeDirection(curr) === acc ? acc : curr
   }),
 )
 
+// -- CLOCK
+
 const clockTick$ = world$.pipe(
   Rx.switchMap(({ points, gameState }) => {
     if (gameState !== 'Playing') {
+      // Pause the clock when the game is not in the 'Playing' state
       return Rx.NEVER
     } else {
+      // Decrease the interval between clock ticks as the score increases
       const gameIntervalMs = Math.max(
         GAME_INTERVAL_MS - points * GAME_INTERVAL_DECREASE_PER_POINT_MS,
         MIN_GAME_INTERVAL_MS,
@@ -82,23 +97,32 @@ const clockTick$ = world$.pipe(
   }),
 )
 
+// -- GAME EVENTS
+
+// Merge all game events into a single stream
+
 const gameEvent$: Rx.Observable<GameEvent> = Rx.merge(
   clockTick$.pipe(Rx.map(() => ({ kind: 'ClockTick' }) as const)),
   spaceBarDown$.pipe(Rx.map(() => ({ kind: 'SpaceBarDown' }) as const)),
 )
 
+// Handle game events and update the world
+
 gameEvent$
   .pipe(
     Rx.withLatestFrom(direction$),
+    // Scan is like reduce, but it emits the intermediate values
     Rx.scan(
       (world, [gameEvent, direction]) =>
         E.Effect.runSyncExit(
-          determineNextWorld(BOARD_SIZE, direction, gameEvent, world),
+          determineNextWorldProgram(BOARD_SIZE, direction, gameEvent, world),
         ).pipe(E.Exit.getOrElse(() => world)),
       initialWorld,
     ),
     Rx.startWith(initialWorld),
+    // Complete with gameState is 'GameOver'
     Rx.takeWhile(({ gameState }) => gameState !== 'GameOver', true),
+    // Restart the game when the space bar is pressed
     Rx.repeat({ delay: () => spaceBarDown$ }),
     Rx.observeOn(Rx.animationFrameScheduler),
   )

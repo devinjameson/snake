@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import * as Rx from 'rxjs'
 
-export const buildUseLastEmittedValue = <T extends NonNullable<unknown>>(
+export const buildUseLastEmittedValue = <T>(
   observable$: Rx.Observable<T>,
   initialState: T,
 ): (() => T) => {

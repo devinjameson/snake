@@ -5,9 +5,19 @@ import { Board, Cell, matchGameState, Row } from './model'
 import { useWorld } from './useWorld'
 import { BOARD_SIZE } from './constants'
 
+// --
+// View layer is only concerned with rendering the game state
+// Logic within components is very simple
+// Single slice of state
+// --
+
+// -- BOARD
+
 const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
   E.Chunk.makeBy(BOARD_SIZE, (y) => E.Data.tuple(x, y)),
 )
+
+// -- VIEW
 
 const App = (): JSX.Element => {
   const { points, gameState } = useWorld()
@@ -17,7 +27,7 @@ const App = (): JSX.Element => {
       <p className="mb-8 font-mono font-bold text-5xl">{points}</p>
 
       <div className="flex items-center justify-center relative bg-white">
-        <div className="flex items-center justify-center divide-x divide-white">
+        <div className="flex items-center justify-center">
           {board.pipe(
             E.Chunk.map((row, rowIdx) => {
               return <Row row={row} rowIdx={rowIdx} key={rowIdx} />
@@ -70,7 +80,7 @@ const App = (): JSX.Element => {
 
 const Row = ({ row, rowIdx }: { row: Row; rowIdx: number }): JSX.Element => {
   return (
-    <div className="flex flex-col divide-y divide-white">
+    <div className="flex flex-col">
       {row.pipe(
         E.Chunk.map((_, colIdx) => {
           const cell = E.Data.tuple(rowIdx, colIdx)
