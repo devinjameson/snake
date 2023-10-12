@@ -20,7 +20,7 @@ const board: Board = E.Chunk.makeBy(BOARD_SIZE, (x) =>
 // -- VIEW
 
 const App = (): JSX.Element => {
-  const { points, gameState } = useWorld()
+  const { points } = useWorld()
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
@@ -28,53 +28,24 @@ const App = (): JSX.Element => {
 
       <div className="flex items-center justify-center relative bg-white">
         <div className="flex items-center justify-center">
-          {board.pipe(
-            E.Chunk.map((row, rowIdx) => {
-              return <Row row={row} rowIdx={rowIdx} key={rowIdx} />
-            }),
-          )}
+          <Board />
         </div>
 
-        {E.pipe(
-          gameState,
-          matchGameState({
-            onNotStarted: () => {
-              return (
-                <Overlay
-                  headerText="Snake"
-                  bodyText="Press space to start"
-                  backgroundColor="bg-green-600"
-                />
-              )
-            },
-
-            onPlaying: () => {
-              return <></>
-            },
-
-            onPaused: () => {
-              return (
-                <Overlay
-                  headerText="Paused"
-                  bodyText="Press space to resume"
-                  backgroundColor="bg-blue-600"
-                />
-              )
-            },
-
-            onGameOver: () => {
-              return (
-                <Overlay
-                  headerText="Game over"
-                  bodyText="Press space to start over"
-                  backgroundColor="bg-red-600"
-                />
-              )
-            },
-          }),
-        )}
+        <Overlays />
       </div>
     </div>
+  )
+}
+
+const Board = (): JSX.Element => {
+  return (
+    <>
+      {board.pipe(
+        E.Chunk.map((row, rowIdx) => {
+          return <Row row={row} rowIdx={rowIdx} key={rowIdx} />
+        }),
+      )}
+    </>
   )
 }
 
@@ -104,6 +75,53 @@ const Cell = ({ cell }: { cell: Cell }): JSX.Element => {
   )
 
   return <div className={className} />
+}
+
+const Overlays = (): JSX.Element => {
+  const { gameState } = useWorld()
+
+  return (
+    <>
+      {E.pipe(
+        gameState,
+        matchGameState({
+          onNotStarted: () => {
+            return (
+              <Overlay
+                headerText="Snake"
+                bodyText="Press space to start"
+                backgroundColor="bg-green-600"
+              />
+            )
+          },
+
+          onPlaying: () => {
+            return <></>
+          },
+
+          onPaused: () => {
+            return (
+              <Overlay
+                headerText="Paused"
+                bodyText="Press space to resume"
+                backgroundColor="bg-blue-600"
+              />
+            )
+          },
+
+          onGameOver: () => {
+            return (
+              <Overlay
+                headerText="Game over"
+                bodyText="Press space to start over"
+                backgroundColor="bg-red-600"
+              />
+            )
+          },
+        }),
+      )}
+    </>
+  )
 }
 
 const Overlay = ({

@@ -8,15 +8,13 @@ import * as S from '@effect/schema/Schema'
 // -- WORLD
 
 export type World = {
-  snakePosition: SnakePosition
-  applePosition: ApplePosition
+  snakePosition: E.Chunk.Chunk<Cell>
+  applePosition: Cell
   points: number
   gameState: GameState
 }
 
 export type GameState = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
-export type SnakePosition = E.Chunk.Chunk<Cell>
-export type ApplePosition = Cell
 
 export type Board = E.Chunk.Chunk<Row>
 export type Row = E.Chunk.Chunk<Cell>
@@ -65,7 +63,7 @@ const getRandomCoordinateComponent = (boardSize: number): number => {
   return Math.floor(Math.random() * boardSize)
 }
 
-export const getRandomApplePosition = (boardSize: number): ApplePosition => {
+export const getRandomApplePosition = (boardSize: number): Cell => {
   return E.Data.tuple(
     getRandomCoordinateComponent(boardSize),
     getRandomCoordinateComponent(boardSize),
@@ -74,7 +72,7 @@ export const getRandomApplePosition = (boardSize: number): ApplePosition => {
 
 // -- GAME LOGIC
 
-const isCollidingWithSelfTask = (snakePosition: SnakePosition) =>
+const isCollidingWithSelfTask = (snakePosition: E.Chunk.Chunk<Cell>) =>
   E.Effect.gen(function* (_) {
     const head = yield* _(chunkHeadTask(snakePosition))
     const tail = yield* _(chunkTailTask(snakePosition))
@@ -82,7 +80,10 @@ const isCollidingWithSelfTask = (snakePosition: SnakePosition) =>
     return tail.pipe(E.Chunk.contains(head))
   })
 
-const isCollidingWithWallTask = (boardSize: number, snake: SnakePosition) =>
+const isCollidingWithWallTask = (
+  boardSize: number,
+  snake: E.Chunk.Chunk<Cell>,
+) =>
   E.Effect.gen(function* (_) {
     const head = yield* _(chunkHeadTask(snake))
 
@@ -94,7 +95,10 @@ const isInBoard =
   ([x, y]: Cell): boolean =>
     x >= 0 && x < boardSize && y >= 0 && y < boardSize
 
-const isCollidingTask = (boardSize: number, snakePosition: SnakePosition) =>
+const isCollidingTask = (
+  boardSize: number,
+  snakePosition: E.Chunk.Chunk<Cell>,
+) =>
   E.Effect.gen(function* (_) {
     const isCollidingWithSelf = yield* _(isCollidingWithSelfTask(snakePosition))
     const isCollidingWithWall = yield* _(
@@ -200,6 +204,7 @@ export const determineNextWorldProgram = (
               gameState: 'Paused' as const,
             }
           }
+
           case 'NotStarted':
           case 'Paused':
           case 'GameOver': {
