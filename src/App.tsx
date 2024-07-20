@@ -107,7 +107,7 @@ const ControlButton = ({
 
   return (
     <button
-      className="flex-1 flex items-center justify-center bg-purple-500 rounded-md"
+      className="flex-1 flex items-center justify-center bg-purple-500 active:bg-purple-600 rounded-md"
       onClick={handleOnClick}>
       <ArrowIcon direction={direction} />
     </button>
