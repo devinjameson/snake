@@ -1,7 +1,7 @@
 import * as E from 'effect'
 import cn from 'classnames'
 
-import { Board, Cell, matchGameState, Row } from './model'
+import { Board, Cell, Direction, matchGameState, Row } from './model'
 import { useWorld } from './useWorld'
 import { BOARD_SIZE } from './constants'
 
@@ -26,51 +26,127 @@ const App = (): JSX.Element => {
     <div className="flex flex-col items-center justify-center h-screen">
       <p className="mb-8 font-mono font-bold text-5xl">{points}</p>
 
-      <div className="flex items-center justify-center relative bg-white">
+      <div className="flex items-center justify-center relative bg-white mb-8">
         <div className="flex items-center justify-center">
-          <Board />
+          <BoardView />
         </div>
 
         <Overlays />
+      </div>
+
+      <Controls />
+    </div>
+  )
+}
+
+const Controls = (): JSX.Element => {
+  return (
+    <div className="w-36 h-36 flex gap-2">
+      <div className="flex flex-col flex-1">
+        <div className="flex-1" />
+        <ControlButton direction="Left" />
+        <div className="flex-1" />
+      </div>
+
+      <div className="flex flex-col flex-1">
+        <ControlButton direction="Up" />
+        <div className="flex-1" />
+        <ControlButton direction="Down" />
+      </div>
+
+      <div className="flex flex-col flex-1">
+        <div className="flex-1" />
+        <ControlButton direction="Right" />
+        <div className="flex-1" />
       </div>
     </div>
   )
 }
 
-const Board = (): JSX.Element => {
+const clickUpEvent = new CustomEvent<Direction>('directionClick', {
+  detail: 'Up',
+})
+const clickRightEvent = new CustomEvent<Direction>('directionClick', {
+  detail: 'Right',
+})
+const clickDownEvent = new CustomEvent<Direction>('directionClick', {
+  detail: 'Down',
+})
+const clickLeftEvent = new CustomEvent<Direction>('directionClick', {
+  detail: 'Left',
+})
+
+const directionToClickEvent = (direction: Direction): Event => {
+  switch (direction) {
+    case 'Up':
+      return clickUpEvent
+    case 'Right':
+      return clickRightEvent
+    case 'Down':
+      return clickDownEvent
+    case 'Left':
+      return clickLeftEvent
+  }
+}
+
+const ControlButton = ({
+  direction,
+}: {
+  direction: Direction
+}): JSX.Element => {
+  const handleOnClick = () => {
+    document.dispatchEvent(directionToClickEvent(direction))
+  }
+
+  return (
+    <button
+      className="flex-1 flex items-center justify-center"
+      onClick={handleOnClick}>
+      {direction}
+    </button>
+  )
+}
+
+const BoardView = (): JSX.Element => {
   return (
     <>
       {board.pipe(
         E.Chunk.map((row, rowIdx) => {
-          return <Row row={row} rowIdx={rowIdx} key={rowIdx} />
+          return <RowView row={row} rowIdx={rowIdx} key={rowIdx} />
         }),
       )}
     </>
   )
 }
 
-const Row = ({ row, rowIdx }: { row: Row; rowIdx: number }): JSX.Element => {
+const RowView = ({
+  row,
+  rowIdx,
+}: {
+  row: Row
+  rowIdx: number
+}): JSX.Element => {
   return (
     <div className="flex flex-col">
       {row.pipe(
         E.Chunk.map((_, colIdx) => {
           const cell = E.Data.tuple(rowIdx, colIdx)
 
-          return <Cell cell={cell} key={colIdx} />
+          return <CellView cell={cell} key={colIdx} />
         }),
       )}
     </div>
   )
 }
 
-const Cell = ({ cell }: { cell: Cell }): JSX.Element => {
+const CellView = ({ cell }: { cell: Cell }): JSX.Element => {
   const { snakePosition, applePosition } = useWorld()
 
   const isSnakeCell = snakePosition.pipe(E.Chunk.contains(cell))
   const isAppleCell = E.Equal.equals(cell)(applePosition)
 
   const className = cn(
-    'w-4 h-4',
+    'w-2 h-2',
     isAppleCell ? 'bg-red-500' : isSnakeCell ? 'bg-green-700' : 'bg-gray-300',
   )
 
@@ -143,7 +219,7 @@ const Overlay = ({
       <p className="text-5xl font-semibold text-white font-mono uppercase mb-8">
         {headerText}
       </p>
-      <p className="text-2xl font-medium text-white font-mono">{bodyText}</p>
+      <p className="text-xl font-medium text-white font-mono">{bodyText}</p>
     </div>
   )
 }

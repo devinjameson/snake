@@ -77,14 +77,19 @@ const spaceBarDown$ = keyDown$.pipe(
 const directionKeyPress$ = keyDown$.pipe(
   Rx.map(({ key }) => key),
   Rx.filter(DirectionKeySchema.pipe(S.is)),
+  Rx.map(keyToDirection),
 )
 
-const direction$ = directionKeyPress$
+const directionClickEvent$ = Rx.fromEvent<CustomEvent<Direction>>(
+  document,
+  'directionClick',
+).pipe(Rx.map(({ detail }) => detail))
+
+const direction$ = Rx.merge(directionKeyPress$, directionClickEvent$)
   .pipe(
     Rx.withLatestFrom(world$),
     Rx.filter(([_, { gameState }]) => gameState === 'Playing'),
-    Rx.map(([key]) => key),
-    Rx.map(keyToDirection),
+    Rx.map(([direction]) => direction),
     Rx.buffer(clockTick$),
     Rx.map(E.Chunk.fromIterable),
     Rx.map(E.Chunk.last),
