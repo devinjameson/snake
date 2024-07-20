@@ -31,9 +31,9 @@ const App = (): JSX.Element => {
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <p className="mb-8 font-mono font-bold text-5xl">{points}</p>
+      <p className="mb-4 font-mono font-bold text-5xl">{points}</p>
 
-      <div className="flex items-center justify-center relative bg-white mb-8">
+      <div className="flex items-center justify-center relative bg-white mb-4">
         <div className="flex items-center justify-center">
           <BoardView />
         </div>
@@ -48,7 +48,7 @@ const App = (): JSX.Element => {
 
 const Controls = (): JSX.Element => {
   return (
-    <div className="w-36 h-36 flex">
+    <div className="w-44 h-44 flex">
       <div className="flex flex-col flex-1">
         <div className="flex-1" />
         <ControlButton direction="Left" />
