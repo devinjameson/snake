@@ -1,6 +1,13 @@
 import * as E from 'effect'
 import cn from 'classnames'
 
+import {
+  ArrowUpIcon,
+  ArrowRightIcon,
+  ArrowDownIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline'
+
 import { Board, Cell, Direction, matchGameState, Row } from './model'
 import { useWorld } from './useWorld'
 import { BOARD_SIZE } from './constants'
@@ -41,7 +48,7 @@ const App = (): JSX.Element => {
 
 const Controls = (): JSX.Element => {
   return (
-    <div className="w-36 h-36 flex gap-2">
+    <div className="w-36 h-36 flex">
       <div className="flex flex-col flex-1">
         <div className="flex-1" />
         <ControlButton direction="Left" />
@@ -100,11 +107,26 @@ const ControlButton = ({
 
   return (
     <button
-      className="flex-1 flex items-center justify-center"
+      className="flex-1 flex items-center justify-center bg-purple-500 rounded-md"
       onClick={handleOnClick}>
-      {direction}
+      <ArrowIcon direction={direction} />
     </button>
   )
+}
+
+const ArrowIcon = ({ direction }: { direction: Direction }): JSX.Element => {
+  const className = 'text-white w-6 h-6 stroke-2'
+
+  switch (direction) {
+    case 'Up':
+      return <ArrowUpIcon className={className} />
+    case 'Right':
+      return <ArrowRightIcon className={className} />
+    case 'Down':
+      return <ArrowDownIcon className={className} />
+    case 'Left':
+      return <ArrowLeftIcon className={className} />
+  }
 }
 
 const BoardView = (): JSX.Element => {
@@ -172,7 +194,7 @@ const Overlays = (): JSX.Element => {
           },
 
           onPlaying: () => {
-            return <></>
+            return <Overlay backgroundColor="bg-transparent" />
           },
 
           onPaused: () => {
@@ -207,8 +229,8 @@ const Overlay = ({
   bodyText,
   backgroundColor,
 }: {
-  headerText: string
-  bodyText: string
+  headerText?: string
+  bodyText?: string
   backgroundColor: string
 }): JSX.Element => {
   const handleOnClick = () => {
@@ -222,13 +244,17 @@ const Overlay = ({
 
   return (
     <div className={className} onClick={handleOnClick}>
-      <p className="text-2xl font-semibold text-white font-mono uppercase mb-8">
-        {headerText}
-      </p>
+      {headerText && (
+        <p className="text-2xl font-semibold text-white font-mono uppercase mb-8">
+          {headerText}
+        </p>
+      )}
 
-      <p className="text-lg font-medium text-white font-mono px-12 text-center">
-        {bodyText}
-      </p>
+      {bodyText && (
+        <p className="text-lg font-medium text-white font-mono px-12 text-center">
+          {bodyText}
+        </p>
+      )}
     </div>
   )
 }
