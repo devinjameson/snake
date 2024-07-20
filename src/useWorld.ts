@@ -80,12 +80,12 @@ const directionKeyPress$ = keyDown$.pipe(
   Rx.map(keyToDirection),
 )
 
-const directionClickEvent$ = Rx.fromEvent<CustomEvent<Direction>>(
+const directionClick$ = Rx.fromEvent<CustomEvent<Direction>>(
   document,
   'directionClick',
 ).pipe(Rx.map(({ detail }) => detail))
 
-const direction$ = Rx.merge(directionKeyPress$, directionClickEvent$)
+const direction$ = Rx.merge(directionKeyPress$, directionClick$)
   .pipe(
     Rx.withLatestFrom(world$),
     Rx.filter(([_, { gameState }]) => gameState === 'Playing'),
@@ -106,9 +106,12 @@ const direction$ = Rx.merge(directionKeyPress$, directionClickEvent$)
 
 // -- GAME EVENTS
 
+const boardClick$ = Rx.fromEvent(document, 'boardClick')
+const changeGameState$ = Rx.merge(boardClick$, spaceBarDown$)
+
 const gameEvent$ = Rx.merge(
   clockTick$.pipe(Rx.map(() => ({ kind: 'ClockTick' }) as const)),
-  spaceBarDown$.pipe(Rx.map(() => ({ kind: 'SpaceBarDown' }) as const)),
+  changeGameState$.pipe(Rx.map(() => ({ kind: 'ChangeGameState' }) as const)),
 )
 
 gameEvent$
@@ -121,7 +124,7 @@ gameEvent$
     }, initialWorld),
     Rx.startWith(initialWorld),
     Rx.takeWhile(({ gameState }) => gameState !== 'GameOver', true),
-    Rx.repeat({ delay: () => spaceBarDown$ }),
+    Rx.repeat({ delay: () => changeGameState$ }),
     Rx.observeOn(Rx.animationFrameScheduler),
   )
   .subscribe((world) => {

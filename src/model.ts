@@ -136,9 +136,9 @@ const chunkTailTask = <T>(chunk: E.Chunk.Chunk<T>) =>
     }),
   )
 
-export type GameEvent = ClockTick | SpaceBarDown
+export type GameEvent = ClockTick | ChangeGameState
 type ClockTick = { kind: 'ClockTick' }
-type SpaceBarDown = { kind: 'SpaceBarDown' }
+type ChangeGameState = { kind: 'ChangeGameState' }
 
 export const determineNextWorldProgram = (
   boardSize: number,
@@ -196,7 +196,7 @@ export const determineNextWorldProgram = (
         )
       }
 
-      case 'SpaceBarDown': {
+      case 'ChangeGameState': {
         switch (world.gameState) {
           case 'Playing': {
             return {

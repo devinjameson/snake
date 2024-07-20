@@ -165,7 +165,7 @@ const Overlays = (): JSX.Element => {
             return (
               <Overlay
                 headerText="Snake"
-                bodyText="Press space to start"
+                bodyText="Press space or tap to start"
                 backgroundColor="bg-green-600"
               />
             )
@@ -179,7 +179,7 @@ const Overlays = (): JSX.Element => {
             return (
               <Overlay
                 headerText="Paused"
-                bodyText="Press space to resume"
+                bodyText="Press space or tap to resume"
                 backgroundColor="bg-blue-600"
               />
             )
@@ -189,7 +189,7 @@ const Overlays = (): JSX.Element => {
             return (
               <Overlay
                 headerText="Game over"
-                bodyText="Press space to start over"
+                bodyText="Press space or tap to start over"
                 backgroundColor="bg-red-600"
               />
             )
@@ -200,6 +200,8 @@ const Overlays = (): JSX.Element => {
   )
 }
 
+const boardClickEvent = new Event('boardClick')
+
 const Overlay = ({
   headerText,
   bodyText,
@@ -209,17 +211,24 @@ const Overlay = ({
   bodyText: string
   backgroundColor: string
 }): JSX.Element => {
+  const handleOnClick = () => {
+    document.dispatchEvent(boardClickEvent)
+  }
+
   const className = cn(
     'absolute inset-0 flex flex-col justify-center items-center opacity-70',
     backgroundColor,
   )
 
   return (
-    <div className={className}>
-      <p className="text-5xl font-semibold text-white font-mono uppercase mb-8">
+    <div className={className} onClick={handleOnClick}>
+      <p className="text-2xl font-semibold text-white font-mono uppercase mb-8">
         {headerText}
       </p>
-      <p className="text-xl font-medium text-white font-mono">{bodyText}</p>
+
+      <p className="text-lg font-medium text-white font-mono px-12 text-center">
+        {bodyText}
+      </p>
     </div>
   )
 }
