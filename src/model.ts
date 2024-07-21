@@ -140,7 +140,7 @@ export type GameEvent = ClockTick | ChangeGameState
 type ClockTick = { kind: 'ClockTick' }
 type ChangeGameState = { kind: 'ChangeGameState' }
 
-export const determineNextWorldProgram = (
+export const determineNextWorld = (
   boardSize: number,
   direction: Direction,
   gameEvent: GameEvent,

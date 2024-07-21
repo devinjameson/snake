@@ -7,7 +7,7 @@ import {
   Direction,
   DirectionKeySchema,
   World,
-  determineNextWorldProgram,
+  determineNextWorld,
   getRandomApplePosition,
   keyToDirection,
   toOppositeDirection,
@@ -117,11 +117,13 @@ const gameEvent$ = Rx.merge(
 gameEvent$
   .pipe(
     Rx.withLatestFrom(direction$),
-    Rx.scan((world, [gameEvent, direction]) => {
-      return E.Effect.runSync(
-        determineNextWorldProgram(BOARD_SIZE, direction, gameEvent, world),
-      )
-    }, initialWorld),
+    Rx.scan(
+      (world, [gameEvent, direction]) =>
+        E.Effect.runSync(
+          determineNextWorld(BOARD_SIZE, direction, gameEvent, world),
+        ),
+      initialWorld,
+    ),
     Rx.startWith(initialWorld),
     Rx.takeWhile(({ gameState }) => gameState !== 'GameOver', true),
     Rx.repeat({ delay: () => changeGameState$ }),
