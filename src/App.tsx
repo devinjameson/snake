@@ -30,8 +30,8 @@ const App = (): JSX.Element => {
   const { points } = useWorld()
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <p className="mb-4 font-mono font-bold text-5xl">{points}</p>
+    <div className="flex flex-col items-center justify-center absolute inset-0">
+      <p className="mb-4 font-mono font-semibold text-4xl">{points}</p>
 
       <div className="flex items-center justify-center relative bg-white mb-4">
         <div className="flex items-center justify-center">
@@ -42,6 +42,8 @@ const App = (): JSX.Element => {
       </div>
 
       <Controls />
+
+      <p className="mt-8">You can use your arrow keys on desktop :)</p>
     </div>
   )
 }
