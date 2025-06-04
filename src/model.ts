@@ -80,32 +80,14 @@ const isCollidingWithSelfTask = (snakePosition: E.Chunk.Chunk<Cell>) =>
     return tail.pipe(E.Chunk.contains(head))
   })
 
-const isCollidingWithWallTask = (
-  boardSize: number,
-  snake: E.Chunk.Chunk<Cell>,
-) =>
-  E.Effect.gen(function* (_) {
-    const head = yield* _(chunkHeadTask(snake))
-
-    return !isInBoard(boardSize)(head)
-  })
-
-const isInBoard =
-  (boardSize: number) =>
-  ([x, y]: Cell): boolean =>
-    x >= 0 && x < boardSize && y >= 0 && y < boardSize
 
 const isCollidingTask = (
-  boardSize: number,
   snakePosition: E.Chunk.Chunk<Cell>,
 ) =>
   E.Effect.gen(function* (_) {
     const isCollidingWithSelf = yield* _(isCollidingWithSelfTask(snakePosition))
-    const isCollidingWithWall = yield* _(
-      isCollidingWithWallTask(boardSize, snakePosition),
-    )
 
-    return isCollidingWithSelf || isCollidingWithWall
+    return isCollidingWithSelf
   })
 
 // These errors are contrived, but useful for demonstration
@@ -153,7 +135,9 @@ export const determineNextWorld = (
 
         const head = yield* _(chunkHeadTask(snakePosition))
 
-        const nextHead = determineNextHead(direction)(head)
+        const nextHead = wrapCell(boardSize)(
+          determineNextHead(direction)(head),
+        )
 
         const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
 
@@ -169,9 +153,7 @@ export const determineNextWorld = (
           E.Chunk.prepend(nextHead),
         )
 
-        const isGameOver = yield* _(
-          isCollidingTask(boardSize, nextSnakePosition),
-        )
+        const isGameOver = yield* _(isCollidingTask(nextSnakePosition))
 
         return E.pipe(
           isGameOver,
@@ -232,6 +214,11 @@ const determineNextHead =
         return E.Data.tuple(x + 1, y)
     }
   }
+
+const wrapCell =
+  (boardSize: number) =>
+  ([x, y]: Cell): Cell =>
+    E.Data.tuple((x + boardSize) % boardSize, (y + boardSize) % boardSize)
 
 export const matchGameState =
   <T extends unknown>({
