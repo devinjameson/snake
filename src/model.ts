@@ -18,7 +18,7 @@ export type GameState = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
 
 export type Board = E.Chunk.Chunk<Row>
 export type Row = E.Chunk.Chunk<Cell>
-export type Cell = E.Data.Data<[number, number]>
+export type Cell = readonly [number, number]
 
 // -- DIRECTION
 
@@ -135,9 +135,7 @@ export const determineNextWorld = (
 
         const head = yield* _(chunkHeadTask(snakePosition))
 
-        const nextHead = wrapCell(boardSize)(
-          determineNextHead(direction)(head),
-        )
+        const nextHead = determineNextHead(boardSize, direction)(head)
 
         const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
 
@@ -201,24 +199,26 @@ export const determineNextWorld = (
   }).pipe(E.Effect.onError(E.Console.error))
 
 const determineNextHead =
-  (direction: Direction) =>
+  (boardSize: number, direction: Direction) =>
   ([x, y]: Cell): Cell => {
-    switch (direction) {
-      case 'Up':
-        return E.Data.tuple(x, y - 1)
-      case 'Down':
-        return E.Data.tuple(x, y + 1)
-      case 'Left':
-        return E.Data.tuple(x - 1, y)
-      case 'Right':
-        return E.Data.tuple(x + 1, y)
-    }
-  }
+    const [nextX, nextY] = (() => {
+      switch (direction) {
+        case 'Up':
+          return [x, y - 1] as const
+        case 'Down':
+          return [x, y + 1] as const
+        case 'Left':
+          return [x - 1, y] as const
+        case 'Right':
+          return [x + 1, y] as const
+      }
+    })()
 
-const wrapCell =
-  (boardSize: number) =>
-  ([x, y]: Cell): Cell =>
-    E.Data.tuple((x + boardSize) % boardSize, (y + boardSize) % boardSize)
+    return E.Data.tuple(
+      (nextX + boardSize) % boardSize,
+      (nextY + boardSize) % boardSize,
+    )
+  }
 
 export const matchGameState =
   <T extends unknown>({
