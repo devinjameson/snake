@@ -18,7 +18,7 @@ export type GameState = 'NotStarted' | 'Playing' | 'Paused' | 'GameOver'
 
 export type Board = E.Chunk.Chunk<Row>
 export type Row = E.Chunk.Chunk<Cell>
-export type Cell = E.Data.Data<[number, number]>
+export type Cell = readonly [number, number]
 
 // -- DIRECTION
 
@@ -80,32 +80,14 @@ const isCollidingWithSelfTask = (snakePosition: E.Chunk.Chunk<Cell>) =>
     return tail.pipe(E.Chunk.contains(head))
   })
 
-const isCollidingWithWallTask = (
-  boardSize: number,
-  snake: E.Chunk.Chunk<Cell>,
-) =>
-  E.Effect.gen(function* (_) {
-    const head = yield* _(chunkHeadTask(snake))
-
-    return !isInBoard(boardSize)(head)
-  })
-
-const isInBoard =
-  (boardSize: number) =>
-  ([x, y]: Cell): boolean =>
-    x >= 0 && x < boardSize && y >= 0 && y < boardSize
 
 const isCollidingTask = (
-  boardSize: number,
   snakePosition: E.Chunk.Chunk<Cell>,
 ) =>
   E.Effect.gen(function* (_) {
     const isCollidingWithSelf = yield* _(isCollidingWithSelfTask(snakePosition))
-    const isCollidingWithWall = yield* _(
-      isCollidingWithWallTask(boardSize, snakePosition),
-    )
 
-    return isCollidingWithSelf || isCollidingWithWall
+    return isCollidingWithSelf
   })
 
 // These errors are contrived, but useful for demonstration
@@ -153,7 +135,7 @@ export const determineNextWorld = (
 
         const head = yield* _(chunkHeadTask(snakePosition))
 
-        const nextHead = determineNextHead(direction)(head)
+        const nextHead = determineNextHead(boardSize, direction)(head)
 
         const isNextHeadOnApple = E.Equal.equals(nextHead)(applePosition)
 
@@ -169,9 +151,7 @@ export const determineNextWorld = (
           E.Chunk.prepend(nextHead),
         )
 
-        const isGameOver = yield* _(
-          isCollidingTask(boardSize, nextSnakePosition),
-        )
+        const isGameOver = yield* _(isCollidingTask(nextSnakePosition))
 
         return E.pipe(
           isGameOver,
@@ -219,18 +199,25 @@ export const determineNextWorld = (
   }).pipe(E.Effect.onError(E.Console.error))
 
 const determineNextHead =
-  (direction: Direction) =>
+  (boardSize: number, direction: Direction) =>
   ([x, y]: Cell): Cell => {
-    switch (direction) {
-      case 'Up':
-        return E.Data.tuple(x, y - 1)
-      case 'Down':
-        return E.Data.tuple(x, y + 1)
-      case 'Left':
-        return E.Data.tuple(x - 1, y)
-      case 'Right':
-        return E.Data.tuple(x + 1, y)
-    }
+    const [nextX, nextY] = (() => {
+      switch (direction) {
+        case 'Up':
+          return [x, y - 1] as const
+        case 'Down':
+          return [x, y + 1] as const
+        case 'Left':
+          return [x - 1, y] as const
+        case 'Right':
+          return [x + 1, y] as const
+      }
+    })()
+
+    return E.Data.tuple(
+      (nextX + boardSize) % boardSize,
+      (nextY + boardSize) % boardSize,
+    )
   }
 
 export const matchGameState =
